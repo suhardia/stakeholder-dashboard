@@ -1,0 +1,27 @@
+@import "tailwindcss";
+
+@theme {
+  --font-sans: "Plus Jakarta Sans Variable", ui-sans-serif, system-ui, sans-serif;
+  --color-ink: #0f1d2b;
+  --color-muted: #5b6b7b;
+  --color-line: #e3e8ee;
+  --color-canvas: #f4f6f8;
+  --color-brand-50: #eaf6f5;
+  --color-brand-100: #cdeae7;
+  --color-brand-500: #13867c;
+  --color-brand-600: #0e6f66;
+  --color-brand-700: #0b5850;
+  --color-brand-900: #07302c;
+  --color-accent: #e08a2c;
+}
+
+html, body { background: var(--color-canvas); color: var(--color-ink); }
+
+@utility card { @apply rounded-xl border border-line bg-white; }
+@utility btn { @apply inline-flex items-center justify-center gap-2 rounded-lg px-3.5 py-2 text-sm font-semibold transition disabled:cursor-not-allowed disabled:opacity-50; }
+@utility btn-primary { @apply btn bg-brand-600 text-white hover:bg-brand-700; }
+@utility btn-ghost { @apply btn border border-line bg-white text-ink hover:bg-canvas; }
+@utility btn-danger { @apply btn bg-red-600 text-white hover:bg-red-700; }
+@utility input { @apply w-full rounded-lg border border-line bg-white px-3 py-2 text-sm outline-none transition placeholder:text-muted/70 focus:border-brand-500 focus:ring-2 focus:ring-brand-100; }
+@utility label { @apply mb-1 block text-xs font-semibold uppercase tracking-wide text-muted; }
+@utility icon-btn { @apply inline-flex h-8 w-8 items-center justify-center rounded-md text-muted transition hover:bg-canvas hover:text-ink disabled:opacity-40; }
