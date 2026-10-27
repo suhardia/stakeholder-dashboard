@@ -14,16 +14,36 @@ const DUMMY_HASH = "$2b$10$FMQBeLvuIG68qqsSLMpbNeX0LI38S/gnUugPodRKvTVGzcqy79OeC
 
 export type FormState = { error?: string; success?: string; username?: string } | undefined;
 
-export async function login(_: FormState, form: FormData): Promise<FormState> {
+export async function login(prev: FormState, form: FormData): Promise<FormState> {
+  let result: FormState;
+  try {
+    result = await attemptLogin(form);
+  } catch (e) {
+    console.error("[login] gagal:", e);
+    const username = String(form.get("username") ?? "").trim().toLowerCase();
+    return { username, error: `Server belum terkonfigurasi dengan benar: ${(e as Error).message}` };
+  }
+  if (result) return result;
+  redirect("/"); // di luar try agar redirect tidak tertangkap sebagai error
+}
+
+/** Mengembalikan pesan error, atau undefined jika login berhasil (cookie sudah dipasang). */
+async function attemptLogin(form: FormData): Promise<FormState> {
   const username = String(form.get("username") ?? "").trim().toLowerCase();
   const password = String(form.get("password") ?? "");
   if (!username || !password) return { error: "Username dan password wajib diisi.", username };
 
-  const { data: u } = await db()
+  const secret = process.env.AUTH_SECRET;
+  if (!secret || secret.length < 32) {
+    throw new Error("environment variable AUTH_SECRET belum diisi atau kurang dari 32 karakter (isi di Vercel → Settings → Environment Variables, lalu Redeploy).");
+  }
+
+  const { data: u, error: dbError } = await db()
     .from("app_users")
     .select("id, password_hash, is_active, failed_attempts, locked_until")
     .eq("username", username)
     .maybeSingle();
+  if (dbError) throw new Error(explainDbError(dbError.message, dbError.code));
 
   if (u?.locked_until && new Date(u.locked_until) > new Date()) {
     const mins = Math.ceil((new Date(u.locked_until).getTime() - Date.now()) / 60000);
@@ -50,7 +70,19 @@ export async function login(_: FormState, form: FormData): Promise<FormState> {
   (await cookies()).set(SESSION_COOKIE, token, {
     httpOnly: true, secure, sameSite: "lax", path: "/", maxAge: SESSION_HOURS * 3600,
   });
-  redirect("/");
+  return undefined;
+}
+
+function explainDbError(msg: string, code?: string) {
+  if (code === "42P01" || code === "PGRST205" || /does not exist|could not find the table/i.test(msg))
+    return "tabel app_users belum ada — jalankan supabase/schema.sql di Supabase SQL Editor.";
+  if (code === "42501" || /permission denied/i.test(msg))
+    return "kunci Supabase tidak punya akses — pastikan SUPABASE_SERVICE_ROLE_KEY berisi service_role / secret key (bukan anon / publishable key).";
+  if (/invalid api key|jwt|unregistered api key/i.test(msg))
+    return "SUPABASE_SERVICE_ROLE_KEY tidak valid — salin ulang dari Supabase → Project Settings → API Keys.";
+  if (/fetch failed|ENOTFOUND|getaddrinfo/i.test(msg))
+    return "tidak bisa menghubungi Supabase — periksa SUPABASE_URL (format https://xxxx.supabase.co).";
+  return `database error: ${msg}`;
 }
 
 export async function logout() {
